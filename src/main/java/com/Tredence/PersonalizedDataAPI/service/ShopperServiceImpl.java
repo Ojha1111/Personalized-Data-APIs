@@ -38,7 +38,7 @@ public class ShopperServiceImpl implements ShopperService {
 
         shopperRepository.save(shopperEntity);
     }
-       @Override
+    @Override
     public List<String> getProductsByShopper(String shopperId, String category, String brand, int limit) {
         Optional<ShopperEntity> optionalShopperEntity = shopperRepository.findById(shopperId);
         if (optionalShopperEntity.isPresent()) {
@@ -51,7 +51,6 @@ public class ShopperServiceImpl implements ShopperService {
             throw new ShopperNotFoundException("Shopper not found with ID: " + shopperId);
         }
     }
-
 
     @Override
     public ShopperDTO getShopperById(String shopperId) {
@@ -71,7 +70,6 @@ public class ShopperServiceImpl implements ShopperService {
         }
     }
 
-
     private ShelfItemEntity convertToShelfItemEntity(ShelfItemDTO shelfItemDTO) {
         ShelfItemEntity shelfItemEntity = new ShelfItemEntity();
         shelfItemEntity.setProductId(shelfItemDTO.getProductId());
@@ -89,37 +87,29 @@ public class ShopperServiceImpl implements ShopperService {
 
         return shelfItemEntity;
     }
-
-
-
-
     @Override
     public List<String> getProductsByShopperWithFilters(String shopperId, String category, String brand, int limit) {
         Optional<ShopperEntity> optionalShopperEntity = shopperRepository.findById(shopperId);
         if (optionalShopperEntity.isPresent()) {
             List<ShelfItemEntity> shelfItems = optionalShopperEntity.get().getShelf();
-            return shelfItems.stream()
-                    .map(item -> {
-                        ProductMetadataEntity productMetadataEntity = item.getProductMetadata();
-                        if (productMetadataEntity != null) {
-                            return new ShelfItemDTO(item.getProductId(), item.getRelevancyScore(), convertToProductMetadataDTO(productMetadataEntity));
-                        } else {
-                            // If productMetadataEntity is null, initialize an empty ProductMetadataDTO
-                            return new ShelfItemDTO(item.getProductId(), item.getRelevancyScore(), new ProductMetadataDTO());
-                        }
-                    })
-                    .limit(limit <= 100 ? limit : 100)
-                    .map(ShelfItemDTO::toString) // Or any other transformation you need
+
+            // Apply filtering based on category and brand
+            List<String> filteredProducts = shelfItems.stream()
+                    .filter(item -> category == null || item.getProductMetadata().getCategory().equals(category))
+                    .filter(item -> brand == null || item.getProductMetadata().getBrand().equals(brand))
+                    .map(ShelfItemEntity::getProductId)
                     .collect(Collectors.toList());
+
+            // Limit the number of products if required
+            if (limit > 0 && limit < filteredProducts.size()) {
+                return filteredProducts.subList(0, limit);
+            } else {
+                return filteredProducts;
+            }
         } else {
             throw new ShopperNotFoundException("Shopper not found with ID: " + shopperId);
         }
     }
-
-
-
-
-
     private ProductMetadataDTO convertToProductMetadataDTO(ProductMetadataEntity productMetadataEntity) {
         ProductMetadataDTO productMetadataDTO = new ProductMetadataDTO();
         if (productMetadataEntity != null) {
@@ -149,7 +139,5 @@ public class ShopperServiceImpl implements ShopperService {
         }
         return shelfItemDTO;
     }
-
-
 
 }

@@ -11,18 +11,20 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
 import java.util.List;
 
-
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/api/v3")
 public class ShopperController {
 
     private final ShopperService shopperService;
+    private final ProductMetadataService productMetadataService;
 
     @Autowired
-    public ShopperController(ShopperService shopperService) {
+    public ShopperController(ShopperService shopperService, ProductMetadataService productMetadataService) {
         this.shopperService = shopperService;
+        this.productMetadataService = productMetadataService;
     }
 
     @PostMapping("/internal/shoppers")
@@ -32,7 +34,6 @@ public class ShopperController {
         }
 
         try {
-
             for (ShelfItemDTO shelfItem : shopperDTO.getShelf()) {
                 ProductMetadataDTO productMetadata = shelfItem.getProductMetadata();
                 if (productMetadata != null) {
@@ -63,10 +64,6 @@ public class ShopperController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
         }
     }
-
-
-    @Autowired
-    private ProductMetadataService productMetadataService;
 
     @PostMapping("/product-metadata")
     public ResponseEntity<String> createProductMetadata(@RequestBody ProductMetadataDTO productMetadataDTO) {
@@ -102,13 +99,21 @@ public class ShopperController {
         try {
             List<String> products = shopperService.getProductsByShopperWithFilters(shopperId, category, brand, limit);
             if (products.isEmpty()) {
-                throw new ShopperNotFoundException("Products not found for shopper ID: " + shopperId);
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
             }
             return ResponseEntity.ok(products);
-        } catch (ShopperNotFoundException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
         }
+    }
+
+    @ExceptionHandler({ShopperNotFoundException.class, ProductNotFoundException.class})
+    public ResponseEntity<Object> handleNotFoundExceptions(Exception ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ex.getMessage());
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<Object> handleOtherExceptions(Exception ex) {
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Internal server error");
     }
 }

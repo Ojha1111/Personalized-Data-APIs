@@ -11,4 +11,7 @@ public interface ProductMetadataService {
     void updateProductMetadata(String productId, ProductMetadataDTO productMetadataDTO);
 
     void storeProductMetadata(ProductMetadataDTO productMetadata);
+
+
+    
 }
