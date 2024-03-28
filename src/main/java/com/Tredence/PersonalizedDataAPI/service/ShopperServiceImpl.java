@@ -9,6 +9,7 @@ import com.Tredence.PersonalizedDataAPI.entity.ShopperEntity;
 import com.Tredence.PersonalizedDataAPI.exception.ShopperNotFoundException;
 import com.Tredence.PersonalizedDataAPI.repository.ProductMetadataRepository;
 import com.Tredence.PersonalizedDataAPI.repository.ShopperRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -20,8 +21,9 @@ import java.util.stream.Collectors;
 public class ShopperServiceImpl implements ShopperService {
     private final ShopperRepository shopperRepository;
     private final ProductMetadataRepository productMetadataRepository;
+
     @Autowired
-    public ShopperServiceImpl(ShopperRepository shopperRepository,ProductMetadataRepository productMetadataRepository) {
+    public ShopperServiceImpl(ShopperRepository shopperRepository, ProductMetadataRepository productMetadataRepository) {
         this.shopperRepository = shopperRepository;
         this.productMetadataRepository = productMetadataRepository;
     }
@@ -38,6 +40,7 @@ public class ShopperServiceImpl implements ShopperService {
 
         shopperRepository.save(shopperEntity);
     }
+
     @Override
     public List<String> getProductsByShopper(String shopperId, String category, String brand, int limit) {
         Optional<ShopperEntity> optionalShopperEntity = shopperRepository.findById(shopperId);
@@ -52,6 +55,7 @@ public class ShopperServiceImpl implements ShopperService {
         }
     }
 
+
     @Override
     public ShopperDTO getShopperById(String shopperId) {
         Optional<ShopperEntity> shopperEntityOptional = shopperRepository.findById(shopperId);
@@ -59,16 +63,18 @@ public class ShopperServiceImpl implements ShopperService {
             ShopperEntity shopperEntity = shopperEntityOptional.get();
             ShopperDTO shopperDTO = new ShopperDTO();
             shopperDTO.setShopperId(shopperEntity.getShopperId());
-            shopperDTO.setShelf(convertToShelfItemDTOs(shopperEntity.getShelf()));
+
             List<ShelfItemDTO> shelfItemDTOs = shopperEntity.getShelf().stream()
                     .map(this::convertToShelfItemDTO)
                     .collect(Collectors.toList());
+
             shopperDTO.setShelf(shelfItemDTOs);
             return shopperDTO;
         } else {
             throw new ShopperNotFoundException("Shopper not found with ID: " + shopperId);
         }
     }
+
 
     private ShelfItemEntity convertToShelfItemEntity(ShelfItemDTO shelfItemDTO) {
         ShelfItemEntity shelfItemEntity = new ShelfItemEntity();
@@ -87,29 +93,32 @@ public class ShopperServiceImpl implements ShopperService {
 
         return shelfItemEntity;
     }
+
+
     @Override
     public List<String> getProductsByShopperWithFilters(String shopperId, String category, String brand, int limit) {
         Optional<ShopperEntity> optionalShopperEntity = shopperRepository.findById(shopperId);
         if (optionalShopperEntity.isPresent()) {
             List<ShelfItemEntity> shelfItems = optionalShopperEntity.get().getShelf();
-
-            // Apply filtering based on category and brand
-            List<String> filteredProducts = shelfItems.stream()
-                    .filter(item -> category == null || item.getProductMetadata().getCategory().equals(category))
-                    .filter(item -> brand == null || item.getProductMetadata().getBrand().equals(brand))
-                    .map(ShelfItemEntity::getProductId)
+            return shelfItems.stream()
+                    .map(item -> {
+                        ProductMetadataEntity productMetadataEntity = item.getProductMetadata();
+                        if (productMetadataEntity != null) {
+                            return new ShelfItemDTO(item.getProductId(), item.getRelevancyScore(), convertToProductMetadataDTO(productMetadataEntity));
+                        } else {
+                            // If productMetadataEntity is null, initialize an empty ProductMetadataDTO
+                            return new ShelfItemDTO(item.getProductId(), item.getRelevancyScore(), new ProductMetadataDTO());
+                        }
+                    })
+                    .limit(limit <= 100 ? limit : 100)
+                    .map(ShelfItemDTO::toString) // Or any other transformation you need
                     .collect(Collectors.toList());
-
-            // Limit the number of products if required
-            if (limit > 0 && limit < filteredProducts.size()) {
-                return filteredProducts.subList(0, limit);
-            } else {
-                return filteredProducts;
-            }
         } else {
             throw new ShopperNotFoundException("Shopper not found with ID: " + shopperId);
         }
     }
+
+
     private ProductMetadataDTO convertToProductMetadataDTO(ProductMetadataEntity productMetadataEntity) {
         ProductMetadataDTO productMetadataDTO = new ProductMetadataDTO();
         if (productMetadataEntity != null) {
@@ -119,6 +128,7 @@ public class ShopperServiceImpl implements ShopperService {
         }
         return productMetadataDTO;
     }
+
     private List<ShelfItemDTO> convertToShelfItemDTOs(List<ShelfItemEntity> shelfItems) {
         return shelfItems.stream()
                 .map(this::convertToShelfItemDTO)
@@ -129,15 +139,18 @@ public class ShopperServiceImpl implements ShopperService {
         ShelfItemDTO shelfItemDTO = new ShelfItemDTO();
         shelfItemDTO.setProductId(shelfItemEntity.getProductId());
         shelfItemDTO.setRelevancyScore(shelfItemEntity.getRelevancyScore());
-        if (shelfItemEntity.getProductMetadata() != null) {
-            ProductMetadataEntity productMetadataEntity = shelfItemEntity.getProductMetadata();
+
+        ProductMetadataEntity productMetadataEntity = shelfItemEntity.getProductMetadata();
+        if (productMetadataEntity != null) {
             ProductMetadataDTO productMetadataDTO = new ProductMetadataDTO();
             productMetadataDTO.setProductId(productMetadataEntity.getProductId());
             productMetadataDTO.setCategory(productMetadataEntity.getCategory());
             productMetadataDTO.setBrand(productMetadataEntity.getBrand());
             shelfItemDTO.setProductMetadata(productMetadataDTO);
         }
+
         return shelfItemDTO;
     }
+
 
 }
